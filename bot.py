@@ -6,19 +6,15 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def start(msg):
-    bot.reply_to(msg, "Hola! Soy @Shan_ebot 🤖\n\nUsa /menu para ver todos los comandos que tengo")
+    bot.reply_to(msg, "Hola soy Shan 😄 Gusto en conocerte\n¿Qué necesitas? Usa /menu o /ayuda para ver la lista de comandos")
 
-@bot.message_handler(commands=['menu'])
+@bot.message_handler(commands=['help', 'menu'])
 def menu(msg):
-    texto = """**MENU DE COMANDOS**
-
-start - Iniciar el bot
-menu - Ver todos los comandos
-info - Info del bot
-ayuda - Ayuda
-hola - Saludo
-"""
-    bot.reply_to(msg, texto, parse_mode="Markdown")
+    texto = """SHANE BOT - COMANDOS
+General: /start /help /menu /info
+Saludos: /hola
+Ayuda: /ayuda"""
+    bot.reply_to(msg, texto)
 
 @bot.message_handler(commands=['info'])
 def info(msg):
@@ -30,10 +26,10 @@ def ayuda(msg):
 
 @bot.message_handler(commands=['hola'])
 def hola(msg):
-    bot.reply_to(msg, "Hooola 👋 ¿Cómo estás?")
+    bot.reply_to(msg, "Me dijiste: /hola")
 
 @bot.message_handler(func=lambda m: True)
 def eco(msg):
-    bot.reply_to(msg, f"Recibí: {msg.text}\nUsa /menu para ver comandos")
+    bot.reply_to(msg, f"Me dijiste: {msg.text}")
 
 bot.infinity_polling()
