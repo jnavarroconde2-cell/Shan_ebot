@@ -6,14 +6,22 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start'])
 def start(msg):
-    bot.reply_to(msg, "Hola soy Shan 😄 Gusto en conocerte\n¿Qué necesitas? Usa /menu o /ayuda para ver la lista de comandos")
+    bot.reply_to(msg, "Hola soy Shan 😄 Gusto en conocerte\n¿Qué necesitas?\nUsa /menu o /ayuda para ver la lista de comandos")
 
 @bot.message_handler(commands=['help', 'menu'])
 def menu(msg):
-    texto = """SHANE BOT - COMANDOS
-General: /start /help /menu /info
-Saludos: /hola
-Ayuda: /ayuda"""
+    texto = """MENU DE COMANDOS
+
+General: 
+/start
+/menu
+/info
+
+Ayuda:
+/ayuda
+
+Saludos:
+/hola"""
     bot.reply_to(msg, texto)
 
 @bot.message_handler(commands=['info'])
