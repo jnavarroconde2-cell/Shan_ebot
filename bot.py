@@ -144,3 +144,36 @@ def main():
     application.run_polling()
 
 if __name__ == "__main__": main()
+
+YDL_OPTS_AUDIO = {
+    'format': 'bestaudio/best',
+    'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
+    'quiet': True, 
+    'noplaylist': True, 
+    'nocheckcertificate': True,
+    'extractor_args': {
+        'youtube': {
+            'player_skip': ['webpage', 'configs'],
+            'visitor_data': 'CgtsbmRkQnF2V1ZzVQ%3D%3D' 
+        },
+        'youtubetab': {
+            'skip': ['webpage']
+        }
+    }
+}
+
+YDL_OPTS_VIDEO = {
+    'format': 'best[ext=mp4][filesize<50M]/best[ext=mp4]/best',
+    'quiet': True, 
+    'noplaylist': True, 
+    'nocheckcertificate': True,
+    'extractor_args': {
+        'youtube': {
+            'player_skip': ['webpage', 'configs'],
+            'visitor_data': 'CgtsbmRkQnF2V1ZzVQ%3D%3D'
+        },
+        'youtubetab': {
+            'skip': ['webpage']
+        }
+    }
+}
