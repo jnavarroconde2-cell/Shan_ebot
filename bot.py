@@ -1,122 +1,75 @@
-import telebot
-import yt_dlp
 import os
+import yt_dlp
+import asyncio
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
+# CREAR CARPETA PARA GUARDAR LOS MP3
+os.makedirs("downloads", exist_ok=True)
+
+# PON TU TOKEN AQUÍ
 TOKEN = "8546862851:AAE25jmlZ2dskHBDRO9UcOz2F41K8lPXJ2U"
-bot = telebot.TeleBot(TOKEN)
 
-# 1. /start - Iniciar el bot
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "Bot iniciado! Escribe /menu para ver todos los comandos")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Hola! Soy tu bot de TikTok\n"
+        "Usa: `/ttmp3 link_de_tiktok` para descargar solo el audio en mp3"
+    )
 
-# 2. /menu - Ver todos los comandos
-@bot.message_handler(commands=['menu'])
-def menu(message):
-    texto = """
-**SHANE BOT - MENÚ DE COMANDOS**
+async def ttmp3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("⏳ Bajando audio de TikTok... 30 seg bro")
 
-**Generales:**
-/start - Iniciar el bot
-/menu - Ver todos los comandos
-/info - Info del bot
-/ayuda - Ayuda
-/hola - Saludo
-/ping - Ver si el bot responde
-/owner - Contacto del creador del bot
-
-**Descargas:**
-/playaudio [link] - Descargar audio de YouTube en MP3
-/tt [link] - Descargar videos de TikTok/TikTok Lite sin marca de agua
-/ttmp3 [link] - Extraer solo el audio MP3 de un video de TikTok/TikTok Lite
-
-Ejemplo: `/tt https://vm.tiktok.com/ZSXk...`
-"""
-    bot.reply_to(message, texto, parse_mode="Markdown")
-
-# 3. /info - Info del bot
-@bot.message_handler(commands=['info'])
-def info(message):
-    bot.reply_to(message, "**Shane Bot v1.0**\nBot para descargar TikTok y YouTube\nHecho con yt-dlp + ffmpeg", parse_mode="Markdown")
-
-# 4. /ayuda - Ayuda
-@bot.message_handler(commands=['ayuda'])
-def ayuda(message):
-    bot.reply_to(message, "¿Necesitas ayuda?\nSolo mándame un comando del /menu con un link y yo hago el resto")
-
-# 5. /hola - Saludo
-@bot.message_handler(commands=['hola'])
-def hola(message):
-    bot.reply_to(message, "¡Hola! ¿Qué tal? Usa /menu para ver qué puedo hacer")
-
-# 6. /ping - Ver si el bot responde
-@bot.message_handler(commands=['ping'])
-def ping(message):
-    bot.reply_to(message, "Pong! El bot está activo ✅")
-
-# 7. /owner - Contacto del creador
-@bot.message_handler(commands=['owner'])
-def owner(message):
-    bot.reply_to(message, "**Creador:** DANTE\nContacto: 929 207 065")
-
-# 8. /playaudio - Descargar audio de YouTube
-@bot.message_handler(commands=['playaudio'])
-def playaudio(message):
     try:
-        partes = message.text.split()
-        if len(partes) < 2:
-            bot.reply_to(message, "❌ **Uso:** `/playaudio https://youtube.com/...`", parse_mode="Markdown")
+        if not context.args:
+            await update.message.reply_text("❌ Usa así: `/ttmp3 https://www.tiktok.com/...`")
             return
-        url = partes[1]
-        bot.reply_to(message, "Bajando audio de YouTube...")
-        
-        ydl_opts = {'format': 'bestaudio/best','outtmpl': 'audio.%(ext)s','postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3'}]}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info).rsplit(".", 1)[0] + ".mp3"
-        bot.send_audio(message.chat.id, open(filename, 'rb'), title=info['title'])
-        os.remove(filename)
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
 
-# 9. /tt - Descargar videos de TikTok sin marca de agua
-@bot.message_handler(commands=['tt'])
-def tt(message):
-    try:
-        partes = message.text.split()
-        if len(partes) < 2:
-            bot.reply_to(message, "❌ **Uso:** `/tt https://vm.tiktok.com/...`", parse_mode="Markdown")
-            return
-        url = partes[1]
-        bot.reply_to(message, "Bajando video de TikTok sin marca de agua...")
-        
-        ydl_opts = {'format': 'best[ext=mp4]','outtmpl': 'video.%(ext)s'}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-        bot.send_video(message.chat.id, open(filename, 'rb'), caption=info['title'])
-        os.remove(filename)
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        url = context.args[0]
 
-# 10. /ttmp3 - Extraer solo audio MP3 de TikTok
-@bot.message_handler(commands=['ttmp3'])
-def ttmp3(message):
-    try:
-        partes = message.text.split()
-        if len(partes) < 2:
-            bot.reply_to(message, "❌ **Uso:** `/ttmp3 https://vm.tiktok.com/...`", parse_mode="Markdown")
-            return
-        url = partes[1]
-        bot.reply_to(message, "Extrayendo audio de TikTok...")
-        
-        ydl_opts = {'format': 'bestaudio/best','outtmpl': 'audio.%(ext)s','postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}]}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info).rsplit(".", 1)[0] + ".mp3"
-        bot.send_audio(message.chat.id, open(filename, 'rb'), title=info['title'])
-        os.remove(filename)
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        # OPCIONES PARA TIKTOK + FFMPEG
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': 'downloads/%(uploader)s - %(title)s.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'quiet': True,
+            'noplaylist': True,
+        }
 
-bot.polling()
+        loop = asyncio.get_event_loop()
+        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=True))
+
+        filename = yt_dlp.YoutubeDL(ydl_opts).prepare_filename(info)
+        mp3_file = os.path.splitext(filename)[0] + '.mp3'
+        title = info.get('title', 'TikTok Audio')
+        uploader = info.get('uploader', 'TikTok')
+
+        # ENVIAR EL MP3
+        await update.message.reply_audio(
+            audio=open(mp3_file, 'rb'),
+            title=title,
+            performer=uploader,
+            caption=f"✅ Audio de: {uploader}"
+        )
+
+        # BORRAR EL ARCHIVO DESPUÉS DE ENVIARLO
+        os.remove(mp3_file)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {str(e)}\nAsegúrate que el link sea público")
+
+def main():
+    application = Application.builder().token(TOKEN).build()
+
+    # COMANDOS
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("ttmp3", ttmp3)) # <- AQUI CAMBIO
+
+    print("Bot iniciado...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
