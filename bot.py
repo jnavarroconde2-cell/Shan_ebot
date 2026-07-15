@@ -206,7 +206,7 @@ import telebot
 import yt_dlp
 import os
 
-TOKEN = "AQUI_TU_TOKEN"
+TOKEN = "8546862851:AAH7iEfIa2YH6valEM4AJ9yqhXYqCnFuOWc"
 bot = telebot.TeleBot(TOKEN)
 
 # 1. /start - Iniciar el bot
