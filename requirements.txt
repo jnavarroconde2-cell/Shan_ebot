@@ -1,4 +1,5 @@
 python-telegram-bot==20.7
 yt-dlp
-youtubesearchpython
+youtube-search-python
 requests
+ffmpeg-python
