@@ -22,15 +22,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Hola! Soy tu bot\n"
         "Comandos:\n"
-        "`/ttmp3 nombre` - Busca 5 audios y eliges\n"
-        "`/playaudio nombre` - Busca 1 audio directo\n"
+        "`/ttmp3 link_de_tiktok` - Extrae audio de TikTok\n"
+        "`/playaudio nombre` - Busca 5 audios y eliges\n"
         "`/tt link_de_tiktok` - Descarga video de TikTok\n"
         "`/owner` - Número del creador"
     )
 
 async def ttmp3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # AHORA SOLO EXTRAE AUDIO DE TIKTOK CON LINK
     if not context.args:
-        await update.message.reply_text("❌ Usa así: `/ttmp3 funk tonta slowed`")
+        await update.message.reply_text("❌ Usa así: `/ttmp3 https://www.tiktok.com/...`")
+        return
+
+    url = context.args[0]
+    await update.message.reply_text("⏳ Extrayendo audio de TikTok...")
+    await download_audio(update, url, "tiktok")
+
+async def playaudio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # AHORA BUSCA 5 OPCIONES COMO HACIA TTM3 ANTES
+    if not context.args:
+        await update.message.reply_text("❌ Usa así: `/playaudio funk tonta slowed`")
         return
 
     query = " ".join(context.args)
@@ -83,14 +94,6 @@ async def handle_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"⏳ Descargando: {selected['title']}...")
     await download_audio(update, url, "youtube")
 
-async def playaudio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("❌ Usa así: `/playaudio funk tonta`")
-        return
-    query = " ".join(context.args)
-    await update.message.reply_text(f"🔍 Buscando: {query}...")
-    await download_audio(update, f"ytsearch1:{query}", "youtube")
-
 async def download_audio(update, url, source):
     try:
         ydl_opts = {
@@ -119,13 +122,12 @@ async def tt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Descargando video...")
 
     try:
-        # OPCIONES: si pesa mucho lo comprime a 720p 30fps
         ydl_opts = {
             'format': 'best[ext=mp4][filesize<50M]/best[ext=mp4]/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'quiet': True, 'noplaylist': True,
             'http_headers': {'User-Agent': 'Mozilla/5.0'},
-            'postprocessor_args': ['-fs', '50M'] # fuerza limite
+            'postprocessor_args': ['-fs', '50M']
         }
 
         loop = asyncio.get_event_loop()
@@ -157,7 +159,6 @@ def main():
     application.add_handler(CommandHandler("playaudio", playaudio))
     application.add_handler(CommandHandler("tt", tt))
     application.add_handler(CommandHandler("owner", owner))
-    # Para capturar cuando eliges 1 al 5
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_choice))
 
     print("Bot iniciado...")
