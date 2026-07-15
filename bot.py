@@ -28,6 +28,26 @@ search_results = {} # Para /playaudio
 # ESTADOS PARA LA CONVERSACION DE /HOLA
 HABLANDO = 1
 
+# ============ OPCIONES YT-DLP ANTI-BOT ============
+YDL_OPTS_AUDIO = {
+    'format': 'bestaudio/best',
+    'outtmpl': 'downloads/%(id)s.%(ext)s',
+    'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
+    'quiet': True,
+    'noplaylist': True,
+    'extractor_args': {'youtube': {'player_client': ['android']}}, # ANTI-BOT
+    'nocheckcertificate': True
+}
+
+YDL_OPTS_SEARCH = {
+    'format': 'bestaudio/best',
+    'quiet': True,
+    'noplaylist': True,
+    'default_search': 'ytsearch',
+    'extract_flat': True,
+    'extractor_args': {'youtube': {'player_client': ['android']}} # ANTI-BOT
+}
+
 # ============ FUNCIONES AUXILIARES NSFW ============
 async def mostrar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -68,7 +88,7 @@ def obtener_imagen_nsfw(categoria: str = "random"):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("🤖 **INFO DEL BOT**\n\n**Versión:** 2.2\n**Funciones:** Descargas + NSFW + Chat\n**Creador:** @TuUsuario\n**Límite:** 50MB por video\n**Host:** 24/7 Railway")
+    texto = ("🤖 **INFO DEL BOT**\n\n**Versión:** 2.3\n**Fix:** Anti-Bot YouTube\n**Funciones:** Descargas + NSFW + Chat\n**Creador:** @TuUsuario\n**Límite:** 50MB por video\n**Host:** 24/7 Railway")
     await update.message.reply_text(texto, parse_mode='Markdown')
 async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE): await help_command(update, context)
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,7 +96,7 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🏓 Pong!\nBot activo: {horas}h {minutos}m {segundos}s")
 async def owner(update: Update, context: ContextTypes.DEFAULT_TYPE): await update.message.reply_text(f"👑 Creador del bot\n📱 Número: {OWNER_NUMBER}")
 
-# NUEVO: /HOLA CONVERSACION
+# /HOLA CONVERSACION
 async def hola_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nombre = update.effective_user.first_name
     await update.message.reply_text(f"👋 Hola {nombre}! ¿Cómo estás hoy?")
@@ -100,14 +120,14 @@ async def hola_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ttmp3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: await update.message.reply_text("❌ Usa así: `/ttmp3 https://www.tiktok.com/...`"); return
     url = context.args[0]; await update.message.reply_text("⏳ Extrayendo audio de TikTok..."); await download_audio(update, url, "tiktok")
+
 async def playaudio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: await update.message.reply_text("❌ Usa así: `/playaudio funk tonta slowed`"); return
     query = " ".join(context.args); user_id = update.effective_user.id
     await update.message.reply_text(f"🔍 Buscando 5 versiones de: {query}...")
-    ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True, 'default_search': 'ytsearch', 'extract_flat': True}
     try:
         loop = asyncio.get_event_loop()
-        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(f"ytsearch5:{query}", download=False))
+        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(YDL_OPTS_SEARCH).extract_info(f"ytsearch5:{query}", download=False))
         results = info['entries']; search_results[user_id] = results
         msg = f"✅ Encontré 5 opciones para `{query}`:\n\n"
         for i, entry in enumerate(results, 1):
@@ -116,6 +136,7 @@ async def playaudio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += "\nResponde con un número del `1` al `5` para descargar"
         await update.message.reply_text(msg, reply_markup=ForceReply(selective=True))
     except Exception as e: await update.message.reply_text(f"❌ Error buscando: {str(e)}")
+
 async def handle_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in search_results or not update.message.text.isdigit(): return
@@ -124,15 +145,16 @@ async def handle_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = search_results.pop(user_id); selected = results[choice-1]
     url = f"https://www.youtube.com/watch?v={selected['id']}"
     await update.message.reply_text(f"⏳ Descargando: {selected['title']}..."); await download_audio(update, url, "youtube")
+
 async def download_audio(update, url, source):
     try:
-        ydl_opts = {'format': 'bestaudio/best', 'outtmpl': 'downloads/%(id)s.%(ext)s','postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],'quiet': True, 'noplaylist': True}
         loop = asyncio.get_event_loop()
-        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=True))
-        filename = yt_dlp.YoutubeDL(ydl_opts).prepare_filename(info); mp3_file = os.path.splitext(filename)[0] + '.mp3'
+        info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(YDL_OPTS_AUDIO).extract_info(url, download=True))
+        filename = yt_dlp.YoutubeDL(YDL_OPTS_AUDIO).prepare_filename(info); mp3_file = os.path.splitext(filename)[0] + '.mp3'
         title = info.get('title', 'Audio')
         await update.message.reply_audio(audio=open(mp3_file, 'rb'), title=title, caption=f"🎵 {title}"); os.remove(mp3_file)
     except Exception as e: await update.message.reply_text(f"❌ Error: {str(e)}")
+
 async def tt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: await update.message.reply_text("❌ Usa: `/tt link_de_tiktok`"); return
     url = context.args[0]; await update.message.reply_text("⏳ Descargando video de TikTok sin marca de agua...")
@@ -165,7 +187,7 @@ async def categorias(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texto, parse_mode='Markdown')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("**LISTA DE COMANDOS:**\n\n**Generales:**\n/start - Iniciar el bot\n/menu - Ver todos los comandos\n/info - Info del bot\n/ayuda - Ayuda\n/hola - Chatear con el bot\n/ping - Ver si el bot responde\n/owner - Contacto del creador\n**Descargas:**\n/playaudio nombre - Descargar audio de YouTube\n/tt link - Descargar videos de TikTok\n/ttmp3 link - Extraer solo el audio MP3 de TikTok\n**NSFW +18:**\n/verify - Verificar edad\n/nsfw categoria - Enviar imagen\n/categorias - Ver categorías")
+    texto = ("**LISTA DE COMANDOS v2.3:**\n\n**Generales:**\n/start - Iniciar el bot\n/menu - Ver todos los comandos\n/info - Info del bot\n/ayuda - Ayuda\n/hola - Chatear con el bot\n/ping - Ver si el bot responde\n/owner - Contacto del creador\n**Descargas:**\n/playaudio nombre - Descargar audio de YouTube\n/tt link - Descargar videos de TikTok\n/ttmp3 link - Extraer solo el audio MP3 de TikTok\n**NSFW +18:**\n/verify - Verificar edad\n/nsfw categoria - Enviar imagen\n/categorias - Ver categorías")
     await update.message.reply_text(texto, parse_mode='Markdown')
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -193,18 +215,13 @@ async def cualquier_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     application = Application.builder().token(TOKEN).build()
-    # ConversationHandler para /hola
     conv_handler = ConversationHandler(entry_points=[CommandHandler("hola", hola_start)],states={HABLANDO: [MessageHandler(filters.TEXT & ~filters.COMMAND, hola_responder)]},fallbacks=[CommandHandler("cancelar", hola_cancelar)])
     application.add_handler(conv_handler)
-    # Generales
     application.add_handler(CommandHandler("start", start)); application.add_handler(CommandHandler("menu", menu)); application.add_handler(CommandHandler("info", info)); application.add_handler(CommandHandler("ayuda", ayuda)); application.add_handler(CommandHandler("ping", ping)); application.add_handler(CommandHandler("owner", owner)); application.add_handler(CommandHandler("help", help_command))
-    # Descargas
     application.add_handler(CommandHandler("ttmp3", ttmp3)); application.add_handler(CommandHandler("playaudio", playaudio)); application.add_handler(CommandHandler("tt", tt))
-    # NSFW
     application.add_handler(CommandHandler("verify", verify)); application.add_handler(CommandHandler("nsfw", nsfw)); application.add_handler(CommandHandler("categorias", categorias))
-    # Callbacks
     application.add_handler(CallbackQueryHandler(callback_handler)); application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_choice)); application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cualquier_mensaje))
-    logging.info("Bot iniciado...")
+    logging.info("Bot v2.3 iniciado...")
     application.run_polling()
 
 if __name__ == "__main__": main()
