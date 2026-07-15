@@ -48,6 +48,7 @@ async def mostrar_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔞 Verificar Edad", callback_data="menu_verify")],
         [InlineKeyboardButton("🎲 NSFW Random", callback_data="menu_nsfw_random")],
         [InlineKeyboardButton("📂 Ver Categorías", callback_data="menu_categorias")],
+        [InlineKeyboardButton("📌 Pinterest", callback_data="menu_pin")],
         [InlineKeyboardButton("⬇️ Descargas", callback_data="menu_descargas")],
         [InlineKeyboardButton("❓ Ayuda", callback_data="menu_help")]
     ]
@@ -78,11 +79,28 @@ def obtener_imagen_nsfw(categoria: str = "random"):
         return None
     except: return None
 
+def buscar_pinterest(query: str):
+    try:
+        search_url = f"https://www.pinterest.com/search/pins/?q={query.replace(' ', '%20')}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        r = requests.get(search_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
+        img_tags = soup.find_all("img")
+        img_urls = []
+        for img in img_tags:
+            src = img.get("src")
+            if src and "pinimg.com" in src and "236x" not in src:
+                src = src.replace("236x", "736x").replace("474x", "736x")
+                if src not in img_urls:
+                    img_urls.append(src)
+        return random.choice(img_urls[:10]) if img_urls else None
+    except: return None
+
 # ============ HANDLERS GENERALES ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("🤖 **INFO DEL BOT v2.5**\n\n**Versión:** Descarga Silenciosa\n**Fix:** Anti-Bot YouTube\n**Host:** 24/7 Railway")
+    texto = ("🤖 **INFO DEL BOT v2.6**\n\n**Versión:** Descarga Silenciosa + Pinterest\n**Fix:** Anti-Bot YouTube\n**Host:** 24/7 Railway")
     await update.message.reply_text(texto, parse_mode='Markdown')
 async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE): await help_command(update, context)
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,24 +130,19 @@ async def download_and_send_audio(update, url, title_msg="Audio"):
     temp_dir = tempfile.mkdtemp()
     try:
         status_msg = await update.message.reply_text("⏳ Descargando...")
-
         ydl_opts = YDL_OPTS_AUDIO.copy()
         ydl_opts['outtmpl'] = os.path.join(temp_dir, '%(id)s.%(ext)s')
-
         loop = asyncio.get_event_loop()
         info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=True))
-
         filename = yt_dlp.YoutubeDL(ydl_opts).prepare_filename(info)
         mp3_file = os.path.splitext(filename)[0] + '.mp3'
         title = info.get('title', title_msg)
-
         await status_msg.delete()
         await update.message.reply_audio(audio=open(mp3_file, 'rb'), title=title, caption=f"🎵 {title}")
-
     except Exception as e:
         await update.message.reply_text(f"❌ Error: {str(e)}")
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True) # Borra todo, no deja rastro
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 async def ttmp3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: await update.message.reply_text("❌ Usa: `/ttmp3 link_de_tiktok`"); return
@@ -191,8 +204,22 @@ async def categorias(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for cat in categorias_disponibles: texto += f"• `/nsfw {cat}`\n"
     await update.message.reply_text(texto, parse_mode='Markdown')
 
+# ============ NUEVO HANDLER PINTEREST ============
+async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ Usa: `/pin memes de goku`");
+        return
+    query = " ".join(context.args)
+    msg = await update.message.reply_text(f"🔍 Buscando en Pinterest: {query}")
+    imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+    if imagen_url:
+        await msg.delete()
+        await update.message.reply_photo(photo=imagen_url, caption=f"**Resultado:** {query}\nFuente: Pinterest 📌", parse_mode='Markdown')
+    else:
+        await msg.edit_text("❌ No encontré nada con ese nombre")
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("**COMANDOS v2.5:**\n\n**Generales:**\n/start /menu /info /hola /ping /owner\n**Descargas:**\n/playaudio nombre - Busca 5 audios\n/ttmp3 link - Audio de TikTok\n/tt link - Video de TikTok\n**NSFW +18:**\n/verify /nsfw /categorias")
+    texto = ("**COMANDOS v2.6:**\n\n**Generales:**\n/start /menu /info /hola /ping /owner\n**Descargas:**\n/playaudio nombre - Busca 5 audios\n/ttmp3 link - Audio de TikTok\n/tt link - Video de TikTok\n**Búsqueda:**\n/pin texto - Busca imágenes en Pinterest\n**NSFW +18:**\n/verify /nsfw /categorias")
     await update.message.reply_text(texto, parse_mode='Markdown')
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -216,8 +243,9 @@ def main():
     application.add_handler(CommandHandler("start", start)); application.add_handler(CommandHandler("menu", menu)); application.add_handler(CommandHandler("info", info)); application.add_handler(CommandHandler("ayuda", ayuda)); application.add_handler(CommandHandler("ping", ping)); application.add_handler(CommandHandler("owner", owner)); application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("ttmp3", ttmp3)); application.add_handler(CommandHandler("playaudio", playaudio)); application.add_handler(CommandHandler("tt", tt))
     application.add_handler(CommandHandler("verify", verify)); application.add_handler(CommandHandler("nsfw", nsfw)); application.add_handler(CommandHandler("categorias", categorias))
+    application.add_handler(CommandHandler("pin", pin)) # NUEVO COMANDO
     application.add_handler(CallbackQueryHandler(callback_handler)); application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cualquier_mensaje))
-    logging.info("Bot v2.5 iniciado...")
+    logging.info("Bot v2.6 iniciado...")
     application.run_polling()
 
 if __name__ == "__main__": main()
