@@ -1,57 +1,35 @@
-import telebot
-import yt_dlp
-import os
-
-TOKEN = "8546862851:AAH7iEfIa2YH6valEM4AJ9yqhXYqCnFuOWc" # El token de @BotFather
-bot = telebot.TeleBot(TOKEN)
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "Bot iniciado!")
-
-@bot.message_handler(commands=['menu'])
-def menu(message):
-    texto = """start - Iniciar el bot
-menu - Ver todos los comandos
-info - Info del bot
-ayuda - Ayuda
-hola - Saludo
-ping - Ver si el bot responde
-owner - Contacto del creador del bot
-playaudio - Descargar audio de YouTube
-tt - Descargar videos de TikTok/TikTok Lite sin marca de agua
-Uso: /tt https://vm.tiktok.com/ABC123/"""
-    bot.reply_to(message, texto)
-
-@bot.message_handler(commands=['tt'])
-def tt(message):
+@bot.message_handler(commands=['ttmp3'])
+def ttmp3(message):
     try:
         url = message.text.split(" ", 1)[1]
     except:
-        bot.reply_to(message, "❌ Manda el link así: /tt https://vm.tiktok.com/...")
+        bot.reply_to(message, "❌ Manda el link así: /ttmp3 https://vm.tiktok.com/...")
         return
 
-    bot.reply_to(message, "⏳ Bajando TikTok sin marca de agua...")
+    bot.reply_to(message, "⏳ Extrayendo audio...")
 
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
-        'outtmpl': 'tiktok.%(ext)s',
+        'format': 'bestaudio/best',
+        'outtmpl': 'tiktok_audio.%(ext)s',
         'noplaylist': True,
         'quiet': True,
-        'merge_output_format': 'mp4',
+        'postprocessors': [{ # Esto convierte a MP3
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
+            filename = filename.rsplit(".", 1)[0] + ".mp3" # cambia la extensión a mp3
 
-        with open(filename, 'rb') as video:
-            bot.send_video(message.chat.id, video, caption=f"✅ {info.get('title', 'TikTok')}")
+        with open(filename, 'rb') as audio:
+            bot.send_audio(message.chat.id, audio, title=info.get('title', 'TikTok Audio'))
 
         os.remove(filename)
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
-
-bot.polling()
