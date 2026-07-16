@@ -313,7 +313,7 @@ async def img(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = " ".join(context.args)
     msg = await update.message.reply_text(f"🔍 Buscando: *{query}*...", parse_mode='Markdown')
     try:
-        with DDGS() as ddgs:
+    with DDGS(headers={"User-Agent": "Mozilla/5.0"}) as ddgs:
             resultados = list(ddgs.images(keywords=query, max_results=10))
         if not resultados:
             await msg.edit_text("❌ No encontré imágenes")
@@ -323,7 +323,7 @@ async def img(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resultados = [r for r in resultados if r["image"] not in historial_img[user_id]]
         if not resultados:
             historial_img[user_id] = []
-            with DDGS() as ddgs:
+            with DDGS(headers={"User-Agent": "Mozilla/5.0"}) as ddgs:
                 resultados = list(ddgs.images(keywords=query, max_results=10))
         imagen_random = random.choice(resultados)
         url_imagen = imagen_random["image"]
