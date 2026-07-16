@@ -9,6 +9,7 @@ import tempfile
 import shutil
 import json
 import re
+from duckduckgo_search import DDGS
 from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ConversationHandler
 
@@ -303,7 +304,36 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else: await mostrar_menu(update, context)
 
 async def cualquier_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE): await handle_choice(update, context)
+historial_img = {}
 
+async def img(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ Usa: `/img gatos chistosos`", parse_mode='Markdown')
+        return
+    query = " ".join(context.args)
+    msg = await update.message.reply_text(f"🔍 Buscando: *{query}*...", parse_mode='Markdown')
+    try:
+        with DDGS() as ddgs:
+            resultados = list(ddgs.images(keywords=query, max_results=10))
+        if not resultados:
+            await msg.edit_text("❌ No encontré imágenes")
+            return
+        user_id = update.effective_user.id
+        if user_id in historial_img:
+            resultados = [r for r in resultados if r["image"] not in historial_img[user_id]]
+        if not resultados:
+            historial_img[user_id] = []
+            with DDGS() as ddgs:
+                resultados = list(ddgs.images(keywords=query, max_results=10))
+        imagen_random = random.choice(resultados)
+        url_imagen = imagen_random["image"]
+        if user_id not in historial_img: historial_img[user_id] = []
+        historial_img[user_id].append(url_imagen)
+        if len(historial_img[user_id]) > 20: historial_img[user_id].pop(0)
+        await msg.delete()
+        await update.message.reply_photo(photo=url_imagen, caption=f"📌 *{query}*\n🔍 Fuente: DuckDuckGo", parse_mode='Markdown')
+    except Exception as e:
+        await msg.edit_text(f"❌ Error: {str(e)}")
 def main():
     application = Application.builder().token(TOKEN).build()
     conv_handler = ConversationHandler(entry_points=[CommandHandler("hola", hola_start)],states={HABLANDO: [MessageHandler(filters.TEXT & ~filters.COMMAND, hola_responder)]},fallbacks=[CommandHandler("cancelar", hola_cancelar)])
@@ -312,6 +342,7 @@ def main():
     application.add_handler(CommandHandler("ttmp3", ttmp3)); application.add_handler(CommandHandler("playaudio", playaudio)); application.add_handler(CommandHandler("tt", tt))
     application.add_handler(CommandHandler("verify", verify)); application.add_handler(CommandHandler("nsfw", nsfw)); application.add_handler(CommandHandler("categorias", categorias))
     application.add_handler(CommandHandler("pin", pin))
+    application.add_handler(CommandHandler("img", img))
     application.add_handler(CallbackQueryHandler(callback_handler)); application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cualquier_mensaje))
     logging.info("Bot v2.7 iniciado...")
     application.run_polling()
