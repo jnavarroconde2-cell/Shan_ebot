@@ -142,7 +142,7 @@ def buscar_pinterest(query: str):
             elif '474x' in clean_url: clean_url = clean_url.replace('474x', '736x')
             if clean_url not in img_urls: img_urls.append(clean_url)
         if img_urls: return random.choice(img_urls[:15])
-        unsplash_url = f"https://source.unsplash.com/800x600/?{query.replace(' ',')}"
+        unsplash_url = f"https://source.unsplash.com/800x600/?{query.replace(' ', ',')}" # <-- ARREGLADO
         response = requests.get(unsplash_url, allow_redirects=True, timeout=10)
         if response.status_code == 200: return response.url
         return None
