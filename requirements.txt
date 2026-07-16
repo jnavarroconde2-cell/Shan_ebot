@@ -4,3 +4,4 @@ youtube-search-python
 requests
 ffmpeg-python
 beautifulsoup4
+duckduckgo_search
