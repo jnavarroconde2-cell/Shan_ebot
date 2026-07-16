@@ -7,6 +7,8 @@ import requests
 import time
 import tempfile
 import shutil
+import json
+import re
 from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ConversationHandler
 
@@ -23,14 +25,15 @@ categorias_disponibles = ["random", "waifu", "hentai", "neko", "blowjob","trap",
 search_results = {}
 HABLANDO = 1
 
-# ============ OPCIONES YT-DLP ANTI-BOT ============
+# ============ OPCIONES YT-DLP ANTI-BOT 2026 ============
 YDL_OPTS_AUDIO = {
     'format': 'bestaudio/best',
     'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
     'quiet': True,
     'noplaylist': True,
     'nocheckcertificate': True,
-    'extractor_args': {'youtube': {'player_client': ['android']}}, # Anti-bot
+    'age_limit': 18,
+    'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web']}}, # Anti-bot mejorado
 }
 
 YDL_OPTS_SEARCH = {
@@ -39,7 +42,17 @@ YDL_OPTS_SEARCH = {
     'noplaylist': True,
     'default_search': 'ytsearch',
     'extract_flat': True,
-    'extractor_args': {'youtube': {'player_client': ['android']}} # Anti-bot
+    'age_limit': 18,
+    'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web']}} # Anti-bot mejorado
+}
+
+YDL_OPTS_VIDEO = { # NUEVO para /tt
+    'format': 'best[ext=mp4][filesize<50M]/best[ext=mp4]/best',
+    'quiet': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'age_limit': 18,
+    'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web']}}
 }
 
 # ============ FUNCIONES AUXILIARES ============
@@ -68,39 +81,81 @@ async def verificar_edad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return False
     return True
 
+# ============ FUNCIÓN NSFW CORREGIDA ============
 def obtener_imagen_nsfw(categoria: str = "random"):
-    apis = {"random": "https://api.waifu.im/search/?is_nsfw=true","waifu": "https://api.waifu.im/search/?is_nsfw=true&included_tags=waifu","hentai": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai","neko": "https://nekos.life/api/v2/img/lewd","blowjob": "https://nekos.life/api/v2/img/blowjob","trap": "https://nekos.life/api/v2/img/trap","femdom": "https://nekos.life/api/v2/img/femdom","boobs": "https://nekos.life/api/v2/img/boobs","hentai_api": "https://nekos.life/api/v2/img/hentai","anal": "https://nekos.life/api/v2/img/anal","cum": "https://nekos.life/api/v2/img/cum","pussy": "https://nekos.life/api/v2/img/pussy"}
+    apis = {
+        "random": "https://api.waifu.im/search/?is_nsfw=true",
+        "waifu": "https://api.waifu.im/search/?is_nsfw=true&included_tags=waifu",
+        "hentai": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai",
+        "neko": "https://api.waifu.im/search/?is_nsfw=true&included_tags=maid",
+        "blowjob": "https://api.waifu.im/search/?is_nsfw=true&included_tags=uniform",
+        "trap": "https://api.waifu.im/search/?is_nsfw=true&included_tags=uniform",
+        "femdom": "https://api.waifu.im/search/?is_nsfw=true&included_tags=uniform",
+        "boobs": "https://api.waifu.im/search/?is_nsfw=true&included_tags=uniform",
+        "hentai_api": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai",
+        "anal": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai",
+        "cum": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai",
+        "pussy": "https://api.waifu.im/search/?is_nsfw=true&included_tags=hentai"
+    }
+    nekos_apis = {
+        "neko": "https://nekos.life/api/v2/img/lewd",
+        "blowjob": "https://nekos.life/api/v2/img/blowjob",
+        "trap": "https://nekos.life/api/v2/img/trap",
+        "femdom": "https://nekos.life/api/v2/img/femdom",
+        "boobs": "https://nekos.life/api/v2/img/boobs",
+        "hentai_api": "https://nekos.life/api/v2/img/hentai",
+        "anal": "https://nekos.life/api/v2/img/anal",
+        "cum": "https://nekos.life/api/v2/img/cum",
+        "pussy": "https://nekos.life/api/v2/img/pussy"
+    }
     try:
         url_api = apis.get(categoria, apis["random"])
-        response = requests.get(url_api, timeout=10)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        response = requests.get(url_api, timeout=10, headers=headers)
         data = response.json()
-        if "url" in data: return data["url"]
-        elif "images" in data and len(data["images"]) > 0: return data["images"][0]["url"]
+        if "images" in data and len(data["images"]) > 0: return data["images"][0]["url"]
+        elif "url" in data: return data["url"]
+        if categoria in nekos_apis:
+            response = requests.get(nekos_apis[categoria], timeout=10, headers=headers)
+            data = response.json()
+            if "url" in data: return data["url"]
         return None
-    except: return None
+    except Exception as e:
+        logging.error(f"Error en NSFW: {e}")
+        return None
 
+# ============ FUNCIÓN PINTEREST CORREGIDA ============
 def buscar_pinterest(query: str):
     try:
-        search_url = f"https://www.pinterest.com/search/pins/?q={query.replace(' ', '%20')}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        r = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
-        img_tags = soup.find_all("img")
+        search_query = query.replace(' ', '%20')
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8","Accept-Language": "en-US,en;q=0.5",}
+        search_url = f"https://www.pinterest.com/search/pins/?q={search_query}&rs=typed"
+        session = requests.Session()
+        session.headers.update(headers)
+        r = session.get(search_url, timeout=15)
         img_urls = []
-        for img in img_tags:
-            src = img.get("src")
-            if src and "pinimg.com" in src and "236x" not in src:
-                src = src.replace("236x", "736x").replace("474x", "736x")
-                if src not in img_urls:
-                    img_urls.append(src)
-        return random.choice(img_urls[:10]) if img_urls else None
-    except: return None
+        pattern = r'https://i\.pinimg\.com/[^"\']+\.(?:jpg|jpeg|png|gif)'
+        matches = re.findall(pattern, r.text)
+        for url in matches:
+            clean_url = url.split('?')[0]
+            if '236x' in clean_url: clean_url = clean_url.replace('236x', '736x')
+            elif '474x' in clean_url: clean_url = clean_url.replace('474x', '736x')
+            if clean_url not in img_urls: img_urls.append(clean_url)
+        if img_urls: return random.choice(img_urls[:15])
+        unsplash_url = f"https://source.unsplash.com/800x600/?{query.replace(' ',')}"
+        response = requests.get(unsplash_url, allow_redirects=True, timeout=10)
+        if response.status_code == 200: return response.url
+        return None
+    except Exception as e:
+        logging.error(f"Error en Pinterest: {e}")
+        try: return f"https://picsum.photos/800/600?random={random.randint(1,1000)}"
+        except: return None
 
 # ============ HANDLERS GENERALES ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("🤖 **INFO DEL BOT v2.6**\n\n**Versión:** Descarga Silenciosa + Pinterest\n**Fix:** Anti-Bot YouTube\n**Host:** 24/7 Railway")
+    texto = ("🤖 **INFO DEL BOT v2.7**\n\n**Versión:** Descarga Silenciosa + Anti-Bot YT\n**Fix:** player_client android/ios/web")
     await update.message.reply_text(texto, parse_mode='Markdown')
 async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE): await help_command(update, context)
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -179,7 +234,8 @@ async def tt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = context.args[0]; await update.message.reply_text("⏳ Descargando video...")
     try:
         temp_dir = tempfile.mkdtemp()
-        ydl_opts = {'format': 'best[ext=mp4][filesize<50M]/best[ext=mp4]/best','outtmpl': os.path.join(temp_dir, '%(id)s.%(ext)s'), 'quiet': True, 'noplaylist': True}
+        ydl_opts = YDL_OPTS_VIDEO.copy() # CAMBIO 2: Usa el nuevo anti-bot
+        ydl_opts['outtmpl'] = os.path.join(temp_dir, '%(id)s.%(ext)s')
         loop = asyncio.get_event_loop()
         info = await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(url, download=True))
         filename = yt_dlp.YoutubeDL(ydl_opts).prepare_filename(info)
@@ -191,35 +247,46 @@ async def tt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id; usuarios_verificados.add(user_id)
     await update.message.reply_text("✅ Verificado"); await mostrar_menu(update, context)
+
 async def nsfw(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_edad(update, context): return
     categoria = context.args[0].lower() if context.args else "random"
-    await update.message.reply_text("🔄 Buscando imagen...")
+    if categoria not in categorias_disponibles:
+        await update.message.reply_text(f"❌ Categoría no válida. Usa: {', '.join(categorias_disponibles)}")
+        return
+    msg = await update.message.reply_text("🔄 Buscando imagen...")
     imagen_url = await asyncio.to_thread(obtener_imagen_nsfw, categoria)
-    if imagen_url: await update.message.reply_photo(photo=imagen_url, caption=f"Categoría: {categoria}")
-    else: await update.message.reply_text("❌ No se pudo obtener la imagen.")
+    if imagen_url:
+        await msg.delete()
+        await update.message.reply_photo(photo=imagen_url, caption=f"🔞 Categoría: {categoria}")
+    else:
+        await msg.edit_text("❌ No se pudo obtener la imagen. Intenta con otra categoría.")
+
 async def categorias(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_edad(update, context): return
-    texto = "**Categorías:**\n\n"
+    texto = "**Categorías NSFW:**\n\n"
     for cat in categorias_disponibles: texto += f"• `/nsfw {cat}`\n"
     await update.message.reply_text(texto, parse_mode='Markdown')
 
-# ============ NUEVO HANDLER PINTEREST ============
+# ============ HANDLER PINTEREST CORREGIDO ============
 async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❌ Usa: `/pin memes de goku`");
+        await update.message.reply_text("❌ Usa: `/pin memes de goku`\nEjemplo: `/pin paisajes naturales`")
         return
     query = " ".join(context.args)
-    msg = await update.message.reply_text(f"🔍 Buscando en Pinterest: {query}")
+    msg = await update.message.reply_text(f"🔍 Buscando imágenes de: *{query}*...", parse_mode='Markdown')
     imagen_url = await asyncio.to_thread(buscar_pinterest, query)
     if imagen_url:
-        await msg.delete()
-        await update.message.reply_photo(photo=imagen_url, caption=f"**Resultado:** {query}\nFuente: Pinterest 📌", parse_mode='Markdown')
+        try:
+            await msg.delete()
+            await update.message.reply_photo(photo=imagen_url, caption=f"📌 **Resultado:** {query}\n🔍 Fuente: Pinterest",parse_mode='Markdown')
+        except Exception as e:
+            await msg.edit_text(f"❌ Error al enviar la imagen: {str(e)}")
     else:
-        await msg.edit_text("❌ No encontré nada con ese nombre")
+        await msg.edit_text("❌ No se encontraron imágenes. Intenta con otras palabras clave.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    texto = ("**COMANDOS v2.6:**\n\n**Generales:**\n/start /menu /info /hola /ping /owner\n**Descargas:**\n/playaudio nombre - Busca 5 audios\n/ttmp3 link - Audio de TikTok\n/tt link - Video de TikTok\n**Búsqueda:**\n/pin texto - Busca imágenes en Pinterest\n**NSFW +18:**\n/verify /nsfw /categorias")
+    texto = ("**COMANDOS v2.7:**\n\n**Generales:**\n/start /menu /info /hola /ping /owner\n**Descargas:**\n/playaudio nombre - Busca 5 audios\n/ttmp3 link - Audio de TikTok\n/tt link - Video de TikTok\n**Búsqueda:**\n/pin texto - Busca imágenes en Pinterest\n**NSFW +18:**\n/verify /nsfw /categorias")
     await update.message.reply_text(texto, parse_mode='Markdown')
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -228,7 +295,8 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "menu_verify": await verificar_edad(update, context)
     elif data == "menu_nsfw_random":
         if not await verificar_edad(update, context): return
-        await query.edit_message_text("🔄 Buscando..."); imagen_url = await asyncio.to_thread(obtener_imagen_nsfw, "random")
+        await query.edit_message_text("🔄 Buscando...")
+        imagen_url = await asyncio.to_thread(obtener_imagen_nsfw, "random")
         if imagen_url: await query.message.reply_photo(photo=imagen_url)
         await mostrar_menu(update, context)
     elif data == "back_menu": await mostrar_menu(update, context)
@@ -243,9 +311,9 @@ def main():
     application.add_handler(CommandHandler("start", start)); application.add_handler(CommandHandler("menu", menu)); application.add_handler(CommandHandler("info", info)); application.add_handler(CommandHandler("ayuda", ayuda)); application.add_handler(CommandHandler("ping", ping)); application.add_handler(CommandHandler("owner", owner)); application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("ttmp3", ttmp3)); application.add_handler(CommandHandler("playaudio", playaudio)); application.add_handler(CommandHandler("tt", tt))
     application.add_handler(CommandHandler("verify", verify)); application.add_handler(CommandHandler("nsfw", nsfw)); application.add_handler(CommandHandler("categorias", categorias))
-    application.add_handler(CommandHandler("pin", pin)) # NUEVO COMANDO
+    application.add_handler(CommandHandler("pin", pin))
     application.add_handler(CallbackQueryHandler(callback_handler)); application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cualquier_mensaje))
-    logging.info("Bot v2.6 iniciado...")
+    logging.info("Bot v2.7 iniciado...")
     application.run_polling()
 
 if __name__ == "__main__": main()
