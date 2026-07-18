@@ -115,38 +115,32 @@ def obtener_imagen_nsfw(categoria: str = "random"):
     except Exception as e:
         logging.error(f"Error en NSFW: {e}")
         return None
-
-# ============ FUNCIÓN PINTEREST ARREGLADA ============
+        
+# ============ FUNCIÓN PINTEREST/WAIFU/UNSPLASH ============
 def buscar_pinterest(query: str):
     try:
-        search_query = query.replace(' ', '%20')
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        }
-        search_url = f"https://www.pinterest.com/search/pins/?q={search_query}"
-        r = requests.get(search_url, timeout=15, headers=headers)
+        headers = {"User-Agent": "Mozilla/5.0"}
+        
+        # OPCION 1: Si es anime/waifu usamos waifu.im
+        anime_tags = ["anime", "goku", "naruto", "waifu", "loli", "neko", "girl", "boy", "chica", "chico"]
+        if any(tag in query.lower() for tag in anime_tags):
+            url_api = f"https://api.waifu.im/search/?is_nsfw=false&included_tags={query.replace(' ',')}"
+            r = requests.get(url_api, timeout=10, headers=headers)
+            data = r.json()
+            if "images" in data and len(data["images"]) > 0:
+                return data["images"][0]["url"]
 
-        pattern = r'https://i\.pinimg\.com/[^"\']+\.(?:jpg|jpeg|png)'
-        matches = re.findall(pattern, r.text)
-
-        img_urls = []
-        for url in matches:
-            clean_url = url.split('?')[0]
-            if '236x' in clean_url: clean_url = clean_url.replace('236x', '736x')
-            if clean_url not in img_urls: img_urls.append(clean_url)
-
-        if img_urls:
-            return random.choice(img_urls[:20])
-
-        unsplash_url = f"https://source.unsplash.com/800x600/?{query.replace(' ', ',')}"
+        # OPCION 2: Para todo lo demás usamos Unsplash
+        search_query = query.replace(' ', '+')
+        unsplash_url = f"https://source.unsplash.com/800x800/?{search_query}"
         response = requests.get(unsplash_url, allow_redirects=True, timeout=10)
         if response.status_code == 200:
             return response.url
+
         return None
     except Exception as e:
-        logging.error(f"Error en Pinterest: {e}")
-        return f"https://picsum.photos/800/600?random={random.randint(1,1000)}"
+        logging.error(f"Error en buscar: {e}")
+        return None
 
 # ============ HANDLERS GENERALES ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
