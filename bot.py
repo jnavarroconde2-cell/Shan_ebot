@@ -126,31 +126,20 @@ def obtener_imagen_nsfw(categoria: str = "random"):
         return None
 
 # ============ FUNCIÓN PINTEREST CORREGIDA ============
-def buscar_pinterest(query: str):
+def buscar_pinterest(query):
     try:
-        search_query = query.replace(' ', '%20')
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36","Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8","Accept-Language": "en-US,en;q=0.5",}
-        search_url = f"https://www.pinterest.com/search/pins/?q={search_query}&rs=typed"
-        session = requests.Session()
-        session.headers.update(headers)
-        r = session.get(search_url, timeout=15)
-        img_urls = []
-        pattern = r'https://i\.pinimg\.com/[^"\']+\.(?:jpg|jpeg|png|gif)'
-        matches = re.findall(pattern, r.text)
-        for url in matches:
-            clean_url = url.split('?')[0]
-            if '236x' in clean_url: clean_url = clean_url.replace('236x', '736x')
-            elif '474x' in clean_url: clean_url = clean_url.replace('474x', '736x')
-            if clean_url not in img_urls: img_urls.append(clean_url)
-        if img_urls: return random.choice(img_urls[:15])
-        unsplash_url = f"https://source.unsplash.com/800x600/?{query.replace(' ', ',')}" # <-- ARREGLADO
-        response = requests.get(unsplash_url, allow_redirects=True, timeout=10)
-        if response.status_code == 200: return response.url
-        return None
+        with DDGS() as ddgs:
+            results = ddgs.images(
+                keywords=f"{query} site:pinterest.com",
+                max_results=20,
+                safesearch='off'
+            )
+            urls = [r['image'] for r in results if r.get('image')]
+            if urls:
+                return random.choice(urls)
     except Exception as e:
-        logging.error(f"Error en Pinterest: {e}")
-        try: return f"https://picsum.photos/800/600?random={random.randint(1,1000)}"
-        except: return None
+        logging.error(f"Error en DDGS: {e}")
+    return None
 
 # ============ HANDLERS GENERALES ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await mostrar_menu(update, context)
