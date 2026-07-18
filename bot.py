@@ -275,16 +275,14 @@ async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if 'pin_last_url' not in context.bot_data:
         context.bot_data['pin_last_url'] = {}
     
-    msg = await update.message.reply_text(f"🔍 Buscando imágenes de: *{query}*...", parse_mode='Markdown')
+ msg = await update.message.reply_text(f"🔍 Buscando imágenes de: *{query}*...", parse_mode='Markdown')
 imagen_url = await asyncio.to_thread(buscar_pinterest, query)
-  
-    
-    if imagen_url:
-        # Evitar que repita la misma imagen
-        intentos = 0
-        while user_id in context.bot_data['pin_last_url'] and imagen_url == context.bot_data['pin_last_url'][user_id] and intentos < 5:
-    imagen_url = await asyncio.to_thread(buscar_pinterest, query)
-            intentos += 1
+if imagen_url:
+    intentos = 0
+    while user_id in context.bot_data['pin_last_url'] and imagen_url == context.bot_data['pin_last_url'][user_id] and intentos < 5:
+        imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+        intentos += 1
+    context.bot_data['pin_last_url'][user_id] = imagen_url            
         
         context.bot_data['pin_last_url'][user_id] = imagen_url
 
