@@ -130,15 +130,16 @@ def buscar_pinterest(query):
     try:
         with DDGS() as ddgs:
             results = ddgs.images(
-                keywords=f"{query} site:pinterest.com",
+                keywords=f"{query} site:pinterest.com", # Busca solo en Pinterest
                 max_results=20,
                 safesearch='off'
             )
-            urls = [r['image'] for r in results if r.get('image')]
+            urls = [r['image'] for r in results if r.get('image')] # Saca solo los links
             if urls:
-                return random.choice(urls)
+                return random.choice(urls) # Elige 1 al azar
     except Exception as e:
         logging.error(f"Error en DDGS: {e}")
+        return None
     return None
 
 # ============ HANDLERS GENERALES ============
@@ -275,13 +276,14 @@ async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data['pin_last_url'] = {}
     
     msg = await update.message.reply_text(f"🔍 Buscando imágenes de: *{query}*...", parse_mode='Markdown')
-    imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+  
     
     if imagen_url:
         # Evitar que repita la misma imagen
         intentos = 0
         while user_id in context.bot_data['pin_last_url'] and imagen_url == context.bot_data['pin_last_url'][user_id] and intentos < 5:
-            imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+    imagen_url = await asyncio.to_thread(buscar_pinterest, query)
             intentos += 1
         
         context.bot_data['pin_last_url'][user_id] = imagen_url
