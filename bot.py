@@ -10,7 +10,7 @@ import shutil
 import json
 import re
 from duckduckgo_search import DDGS
-from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ConversationHandler
 
 # ============ CONFIGURACIÓN ============
@@ -274,15 +274,55 @@ async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("❌ Usa: `/pin memes de goku`\nEjemplo: `/pin paisajes naturales`")
         return
+    
     query = " ".join(context.args)
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    
+    # Inicializar diccionarios si no existen
+    if 'pin_msg_ids' not in context.bot_data:
+        context.bot_data['pin_msg_ids'] = {}
+    if 'pin_last_url' not in context.bot_data:
+        context.bot_data['pin_last_url'] = {}
+    
     msg = await update.message.reply_text(f"🔍 Buscando imágenes de: *{query}*...", parse_mode='Markdown')
     imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+    
     if imagen_url:
+        # Evitar que repita la misma imagen
+        intentos = 0
+        while user_id in context.bot_data['pin_last_url'] and imagen_url == context.bot_data['pin_last_url'][user_id] and intentos < 5:
+            imagen_url = await asyncio.to_thread(buscar_pinterest, query)
+            intentos += 1
+        
+        context.bot_data['pin_last_url'][user_id] = imagen_url
+
         try:
-            await msg.delete()
-            await update.message.reply_photo(photo=imagen_url, caption=f"📌 **Resultado:** {query}\n🔍 Fuente: Pinterest",parse_mode='Markdown')
+            # Si ya mando un /pin antes, editamos esa misma foto
+            if user_id in context.bot_data['pin_msg_ids']:
+                old_msg_id = context.bot_data['pin_msg_ids'][user_id]
+                await context.bot.edit_message_media(
+                    chat_id=chat_id,
+                    message_id=old_msg_id,
+                    media=InputMediaPhoto(media=imagen_url, caption=f"📌 **Resultado:** {query}\n🔍 Fuente: Pinterest", parse_mode='Markdown')
+                )
+                await msg.delete()
+            else:
+                # Si es la primera vez, mandamos foto nueva y guardamos el id
+                sent_msg = await update.message.reply_photo(
+                    photo=imagen_url, 
+                    caption=f"📌 **Resultado:** {query}\n🔍 Fuente: Pinterest",
+                    parse_mode='Markdown'
+                )
+                context.bot_data['pin_msg_ids'][user_id] = sent_msg.message_id
+                await msg.delete()
+                
         except Exception as e:
-            await msg.edit_text(f"❌ Error al enviar la imagen: {str(e)}")
+            logging.error(f"Error al editar pin: {e}")
+            # Si falla el edit, mandamos una nueva
+            sent_msg = await update.message.reply_photo(photo=imagen_url, caption=f"📌 **Resultado:** {query}\n🔍 Fuente: Pinterest", parse_mode='Markdown')
+            context.bot_data['pin_msg_ids'][user_id] = sent_msg.message_id
+            await msg.delete()
     else:
         await msg.edit_text("❌ No se encontraron imágenes. Intenta con otras palabras clave.")
 
